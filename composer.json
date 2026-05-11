@@ -1,0 +1,46 @@
+{
+    "name": "darkauth/darkauth",
+    "description": "A flexible, production-grade authentication library for CodeIgniter 3 and PHP 7.4+. Supports Session and JWT drivers.",
+    "type": "library",
+    "keywords": [
+        "php",
+        "authentication",
+        "codeigniter3",
+        "jwt",
+        "session",
+        "auth",
+        "darkauth"
+    ],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Imam R",
+            "email": "imamrasyidw@gmail.com"
+        }
+    ],
+    "require": {
+        "php": ">=7.4.33",
+        "firebase/php-jwt": "^6.10"
+    },
+    "autoload": {
+        "psr-4": {
+            "Darkauth\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Darkauth\\Tests\\": "tests/"
+        }
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.5"
+    },
+    "config": {
+        "allow-plugins": {
+            "php-http/discovery": true
+        },
+        "sort-packages": true
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

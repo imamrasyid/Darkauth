@@ -1,0 +1,7 @@
+/vendor/
+composer.lock
+.idea/
+.vscode/
+*.log
+.env
+/tests/test_all.php
