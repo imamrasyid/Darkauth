@@ -7,6 +7,9 @@ use Darkauth\Drivers\SessionGuard;
 use Darkauth\Drivers\JWTGuard;
 use Darkauth\Auth\DatabaseUserProvider;
 use Darkauth\Core\UserProviderInterface;
+use Darkauth\Events\Dispatcher;
+use Darkauth\Audit\AuditLogger;
+use Darkauth\Security\RateLimiterInterface;
 use Darkauth\Support\SessionStorage;
 use Darkauth\Support\JwtHelper;
 use InvalidArgumentException;
@@ -29,6 +32,11 @@ class AuthManager
     protected $guards = [];
 
     /**
+     * @var Dispatcher
+     */
+    protected $events;
+
+    /**
      * @var array
      */
     protected $customCreators = [];
@@ -37,10 +45,12 @@ class AuthManager
      * AuthManager constructor.
      *
      * @param array $config
+     * @param Dispatcher|null $events
      */
-    public function __construct(array $config)
+    public function __construct(array $config, Dispatcher $events = null)
     {
         $this->config = $config;
+        $this->events = $events ?: new Dispatcher();
     }
 
     /**
@@ -100,7 +110,7 @@ class AuthManager
         $storage = new SessionStorage();
         $provider = $this->getProvider($config['provider']);
 
-        return new SessionGuard($name, $storage, $provider);
+        return new SessionGuard($name, $storage, $provider, $this->events);
     }
 
     /**
@@ -120,7 +130,7 @@ class AuthManager
 
         $provider = $this->getProvider($config['provider']);
 
-        return new JWTGuard($jwtHelper, $provider);
+        return new JWTGuard($jwtHelper, $provider, $this->events);
     }
 
     /**
@@ -167,6 +177,16 @@ class AuthManager
     public function getDefaultGuard(): string
     {
         return $this->config['defaults']['guard'] ?? 'web';
+    }
+
+    /**
+     * Get the event dispatcher.
+     *
+     * @return Dispatcher
+     */
+    public function events(): Dispatcher
+    {
+        return $this->events;
     }
 
     /**

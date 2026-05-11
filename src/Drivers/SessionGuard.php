@@ -6,6 +6,7 @@ use Darkauth\Core\StatefulGuardInterface;
 use Darkauth\Core\UserProviderInterface;
 use Darkauth\Core\UserInterface;
 use Darkauth\Core\StorageInterface;
+use Darkauth\Events\Dispatcher;
 
 /**
  * Class SessionGuard
@@ -30,6 +31,11 @@ class SessionGuard implements StatefulGuardInterface
     protected $provider;
 
     /**
+     * @var Dispatcher|null
+     */
+    protected $events;
+
+    /**
      * @var UserInterface|null
      */
     protected $user;
@@ -40,12 +46,14 @@ class SessionGuard implements StatefulGuardInterface
      * @param string $name
      * @param StorageInterface $storage
      * @param UserProviderInterface $provider
+     * @param Dispatcher|null $events
      */
-    public function __construct(string $name, StorageInterface $storage, UserProviderInterface $provider)
+    public function __construct(string $name, StorageInterface $storage, UserProviderInterface $provider, Dispatcher $events = null)
     {
         $this->name = $name;
         $this->storage = $storage;
         $this->provider = $provider;
+        $this->events = $events;
     }
 
     /**
@@ -112,6 +120,10 @@ class SessionGuard implements StatefulGuardInterface
             return true;
         }
 
+        if ($this->events) {
+            $this->events->dispatch('auth.login.failed', ['credentials' => $credentials]);
+        }
+
         return false;
     }
 
@@ -125,6 +137,10 @@ class SessionGuard implements StatefulGuardInterface
         // Prevent session fixation
         $this->storage->regenerate(true);
         
+        if ($this->events) {
+            $this->events->dispatch('auth.login.success', ['user' => $user]);
+        }
+
         $this->user = $user;
     }
 
@@ -148,8 +164,13 @@ class SessionGuard implements StatefulGuardInterface
      */
     public function logout()
     {
+        $user = $this->user();
         $this->storage->remove($this->getName() . '_user_id');
         $this->user = null;
+
+        if ($this->events && $user) {
+            $this->events->dispatch('auth.logout', ['user' => $user]);
+        }
     }
 
     /**

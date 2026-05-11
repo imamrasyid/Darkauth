@@ -5,6 +5,7 @@ namespace Darkauth\Drivers;
 use Darkauth\Core\GuardInterface;
 use Darkauth\Core\UserInterface;
 use Darkauth\Core\UserProviderInterface;
+use Darkauth\Events\Dispatcher;
 use Darkauth\Support\JwtHelper;
 
 /**
@@ -35,15 +36,22 @@ class JWTGuard implements GuardInterface
     protected $user;
 
     /**
+     * @var Dispatcher|null
+     */
+    protected $events;
+
+    /**
      * JWTGuard constructor.
      *
      * @param JwtHelper $jwt
      * @param UserProviderInterface $provider
+     * @param Dispatcher|null $events
      */
-    public function __construct(JwtHelper $jwt, UserProviderInterface $provider)
+    public function __construct(JwtHelper $jwt, UserProviderInterface $provider, Dispatcher $events = null)
     {
         $this->jwt = $jwt;
         $this->provider = $provider;
+        $this->events = $events;
     }
 
     /**
@@ -77,6 +85,10 @@ class JWTGuard implements GuardInterface
             $payload = $this->jwt->decode($token);
             if ($payload && isset($payload['sub'])) {
                 $this->user = $this->provider->retrieveById($payload['sub']);
+                
+                if ($this->user && $this->events) {
+                    $this->events->dispatch('auth.login.success', ['user' => $this->user, 'method' => 'jwt']);
+                }
             }
         }
 
