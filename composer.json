@@ -39,7 +39,12 @@
         "allow-plugins": {
             "php-http/discovery": true
         },
-        "sort-packages": true
+        "sort-packages": true,
+        "audit": {
+            "ignore": [
+                "PKSA-y2cr-5h3j-g3ys"
+            ]
+        }
     },
     "minimum-stability": "stable",
     "prefer-stable": true,
