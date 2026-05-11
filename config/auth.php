@@ -98,4 +98,17 @@ return [
         'enabled' => true,
         'issuer' => 'DarkAuth System',
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Audit & Logging Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Define a callback to handle security events logging.
+    |
+    */
+    'audit' => [
+        'enabled' => true,
+        // 'callback' => function($data) { ... },
+    ],
 ];

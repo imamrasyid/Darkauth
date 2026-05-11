@@ -15,7 +15,9 @@ use Darkauth\MFA\TOTPDriver;
 use Darkauth\Captcha\CaptchaInterface;
 use Darkauth\Captcha\ReCaptchaDriver;
 use Darkauth\Security\RiskEngine;
+use Darkauth\Security\SecurityProfile;
 use Darkauth\Security\TrustedDevice;
+use Darkauth\Security\DatabaseRateLimiter;
 use Darkauth\Auth\RecoveryWorkflow;
 use Darkauth\Support\SessionStorage;
 use Darkauth\Support\JwtHelper;
@@ -58,6 +60,19 @@ class AuthManager
     {
         $this->config = $config;
         $this->events = $events ?: new Dispatcher();
+
+        $this->bootAuditing();
+    }
+
+    /**
+     * Initialize auditing if configured.
+     */
+    protected function bootAuditing()
+    {
+        if (isset($this->config['audit']['callback'])) {
+            $logger = new AuditLogger($this->config['audit']['callback']);
+            $logger->subscribe($this->events);
+        }
     }
 
     /**
@@ -236,6 +251,16 @@ class AuthManager
     }
 
     /**
+     * Get the Security Profile manager.
+     *
+     * @return SecurityProfile
+     */
+    public function getSecurityProfile(): SecurityProfile
+    {
+        return new SecurityProfile();
+    }
+
+    /**
      * Get the Recovery Workflow manager.
      *
      * @return RecoveryWorkflow
@@ -253,6 +278,18 @@ class AuthManager
     public function getTrustedDeviceManager(): TrustedDevice
     {
         return new TrustedDevice(new SessionStorage());
+    }
+
+    /**
+     * Get the Rate Limiter.
+     *
+     * @param callable|null $storage
+     * @return DatabaseRateLimiter
+     */
+    public function getRateLimiter(callable $storage = null): DatabaseRateLimiter
+    {
+        $storage = $storage ?: ($this->config['rate_limit']['callback'] ?? function(){});
+        return new DatabaseRateLimiter($storage);
     }
 
     /**
