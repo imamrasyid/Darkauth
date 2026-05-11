@@ -69,4 +69,33 @@ return [
         'algo' => 'HS256',
         'ttl' => 3600, // 1 hour
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | CAPTCHA Configuration
+    |--------------------------------------------------------------------------
+    */
+    'captcha' => [
+        'driver' => 'recaptcha',
+        'drivers' => [
+            'recaptcha' => [
+                'site_key' => 'YOUR_RECAPTCHA_SITE_KEY',
+                'secret_key' => 'YOUR_RECAPTCHA_SECRET_KEY',
+            ],
+            'hcaptcha' => [
+                'site_key' => 'YOUR_HCAPTCHA_SITE_KEY',
+                'secret_key' => 'YOUR_HCAPTCHA_SECRET_KEY',
+            ],
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | MFA Configuration
+    |--------------------------------------------------------------------------
+    */
+    'mfa' => [
+        'enabled' => true,
+        'issuer' => 'DarkAuth System',
+    ],
 ];

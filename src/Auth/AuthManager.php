@@ -10,6 +10,13 @@ use Darkauth\Core\UserProviderInterface;
 use Darkauth\Events\Dispatcher;
 use Darkauth\Audit\AuditLogger;
 use Darkauth\Security\RateLimiterInterface;
+use Darkauth\MFA\MFAInterface;
+use Darkauth\MFA\TOTPDriver;
+use Darkauth\Captcha\CaptchaInterface;
+use Darkauth\Captcha\ReCaptchaDriver;
+use Darkauth\Security\RiskEngine;
+use Darkauth\Security\TrustedDevice;
+use Darkauth\Auth\RecoveryWorkflow;
 use Darkauth\Support\SessionStorage;
 use Darkauth\Support\JwtHelper;
 use InvalidArgumentException;
@@ -188,6 +195,64 @@ class AuthManager
     public function revokeAllSessionsForUser($userId)
     {
         $this->events->dispatch('auth.sessions.revoked', ['user_id' => $userId]);
+    }
+
+    /**
+     * Get the MFA service.
+     *
+     * @return MFAInterface
+     */
+    public function mfa(): MFAInterface
+    {
+        return new TOTPDriver();
+    }
+
+    /**
+     * Get the Captcha service.
+     *
+     * @param string|null $name
+     * @return CaptchaInterface
+     */
+    public function captcha(string $name = null): CaptchaInterface
+    {
+        $name = $name ?: ($this->config['captcha']['driver'] ?? 'recaptcha');
+        $config = $this->config['captcha']['drivers'][$name] ?? [];
+
+        if ($name === 'recaptcha') {
+            return new ReCaptchaDriver($config['site_key'], $config['secret_key']);
+        }
+
+        throw new InvalidArgumentException("Captcha driver [{$name}] is not supported.");
+    }
+
+    /**
+     * Get the Risk Engine.
+     *
+     * @return RiskEngine
+     */
+    public function getRiskEngine(): RiskEngine
+    {
+        return new RiskEngine();
+    }
+
+    /**
+     * Get the Recovery Workflow manager.
+     *
+     * @return RecoveryWorkflow
+     */
+    public function getRecoveryWorkflow(): RecoveryWorkflow
+    {
+        return new RecoveryWorkflow(new SessionStorage(), $this->events);
+    }
+
+    /**
+     * Get the Trusted Device manager.
+     *
+     * @return TrustedDevice
+     */
+    public function getTrustedDeviceManager(): TrustedDevice
+    {
+        return new TrustedDevice(new SessionStorage());
     }
 
     /**
