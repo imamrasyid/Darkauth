@@ -180,6 +180,17 @@ class AuthManager
     }
 
     /**
+     * Revoke all active sessions for a specific user.
+     *
+     * @param mixed $userId
+     * @return void
+     */
+    public function revokeAllSessionsForUser($userId)
+    {
+        $this->events->dispatch('auth.sessions.revoked', ['user_id' => $userId]);
+    }
+
+    /**
      * Get the event dispatcher.
      *
      * @return Dispatcher
