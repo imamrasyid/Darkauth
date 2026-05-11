@@ -68,6 +68,10 @@ class AuditLogger
             'data' => json_encode($data)
         ];
 
+        // Tamper-resistant signature (HMAC)
+        // In a real app, 'secret_key' should be from config
+        $logData['signature'] = hash_hmac('sha256', $logData['event'] . $logData['timestamp'] . $logData['data'], 'darkauth_log_secret');
+
         call_user_func($this->storageCallback, $logData);
     }
 }

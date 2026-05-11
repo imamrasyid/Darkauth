@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS `darkauth_audit_logs` (
     `ip_address` VARCHAR(45) NOT NULL,
     `user_agent` TEXT,
     `data` JSON,
+    `signature` VARCHAR(64),
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX (`event`),
     INDEX (`user_id`)
