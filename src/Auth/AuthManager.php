@@ -9,7 +9,6 @@ use Darkauth\Auth\DatabaseUserProvider;
 use Darkauth\Core\UserProviderInterface;
 use Darkauth\Events\Dispatcher;
 use Darkauth\Audit\AuditLogger;
-use Darkauth\Security\RateLimiterInterface;
 use Darkauth\MFA\MFAInterface;
 use Darkauth\MFA\TOTPDriver;
 use Darkauth\Captcha\CaptchaInterface;
@@ -22,6 +21,7 @@ use Darkauth\Auth\RecoveryWorkflow;
 use Darkauth\Support\SessionStorage;
 use Darkauth\Support\JwtHelper;
 use InvalidArgumentException;
+use RuntimeException;
 
 /**
  * Class AuthManager
@@ -39,6 +39,11 @@ class AuthManager
      * @var array
      */
     protected $guards = [];
+
+    /**
+     * @var array
+     */
+    protected $resolvedInstances = [];
 
     /**
      * @var Dispatcher
@@ -70,7 +75,8 @@ class AuthManager
     protected function bootAuditing()
     {
         if (isset($this->config['audit']['callback'])) {
-            $logger = new AuditLogger($this->config['audit']['callback']);
+            $hmacKey = $this->config['audit']['hmac_key'] ?? '';
+            $logger = new AuditLogger($this->config['audit']['callback'], $hmacKey);
             $logger->subscribe($this->events);
         }
     }
@@ -145,10 +151,17 @@ class AuthManager
     protected function createJwtDriver(string $name, array $config): JWTGuard
     {
         $jwtConfig = $this->config['jwt'] ?? [];
-        $jwtHelper = new JwtHelper(
-            $jwtConfig['secret'] ?? 'change-me',
-            $jwtConfig['algo'] ?? 'HS256'
-        );
+        $secret = $jwtConfig['secret'] ?? null;
+
+        $insecureDefaults = ['change-me', 'your-secret-key-change-me', 'secret', ''];
+        if ($secret === null || in_array($secret, $insecureDefaults, true)) {
+            throw new RuntimeException(
+                'JWT secret must be set to a secure random value. '
+                . 'Do not use default/insecure keys in production.'
+            );
+        }
+
+        $jwtHelper = new JwtHelper($secret, $jwtConfig['algo'] ?? 'HS256', $jwtConfig['issuer'] ?? null);
 
         $provider = $this->getProvider($config['provider']);
 
@@ -209,6 +222,9 @@ class AuthManager
      */
     public function revokeAllSessionsForUser($userId)
     {
+        $trustedDevice = $this->getTrustedDeviceManager();
+        $trustedDevice->revokeAll($userId);
+
         $this->events->dispatch('auth.sessions.revoked', ['user_id' => $userId]);
     }
 
@@ -219,7 +235,12 @@ class AuthManager
      */
     public function mfa(): MFAInterface
     {
-        return new TOTPDriver();
+        $key = 'mfa';
+        if (!isset($this->resolvedInstances[$key])) {
+            $storageCallback = $this->config['mfa']['callback'] ?? null;
+            $this->resolvedInstances[$key] = new TOTPDriver($storageCallback);
+        }
+        return $this->resolvedInstances[$key];
     }
 
     /**
@@ -234,6 +255,9 @@ class AuthManager
         $config = $this->config['captcha']['drivers'][$name] ?? [];
 
         if ($name === 'recaptcha') {
+            if (empty($config['site_key']) || empty($config['secret_key'])) {
+                throw new InvalidArgumentException("Captcha driver [{$name}] requires 'site_key' and 'secret_key' in configuration.");
+            }
             return new ReCaptchaDriver($config['site_key'], $config['secret_key']);
         }
 
@@ -247,7 +271,11 @@ class AuthManager
      */
     public function getRiskEngine(): RiskEngine
     {
-        return new RiskEngine();
+        $key = 'risk_engine';
+        if (!isset($this->resolvedInstances[$key])) {
+            $this->resolvedInstances[$key] = new RiskEngine();
+        }
+        return $this->resolvedInstances[$key];
     }
 
     /**
@@ -257,7 +285,11 @@ class AuthManager
      */
     public function getSecurityProfile(): SecurityProfile
     {
-        return new SecurityProfile();
+        $key = 'security_profile';
+        if (!isset($this->resolvedInstances[$key])) {
+            $this->resolvedInstances[$key] = new SecurityProfile();
+        }
+        return $this->resolvedInstances[$key];
     }
 
     /**
@@ -267,7 +299,12 @@ class AuthManager
      */
     public function getRecoveryWorkflow(): RecoveryWorkflow
     {
-        return new RecoveryWorkflow(new SessionStorage(), $this->events);
+        $key = 'recovery_workflow';
+        if (!isset($this->resolvedInstances[$key])) {
+            $storageCallback = $this->config['recovery']['callback'] ?? function(){};
+            $this->resolvedInstances[$key] = new RecoveryWorkflow($storageCallback, $this->events);
+        }
+        return $this->resolvedInstances[$key];
     }
 
     /**
@@ -277,19 +314,34 @@ class AuthManager
      */
     public function getTrustedDeviceManager(): TrustedDevice
     {
-        return new TrustedDevice(new SessionStorage());
+        $key = 'trusted_device';
+        if (!isset($this->resolvedInstances[$key])) {
+            $storage = $this->config['trusted_device']['callback'] ?? function(){};
+            $hmacKey = $this->config['trusted_device']['hmac_key'] ?? '';
+            $this->resolvedInstances[$key] = new TrustedDevice($storage, $hmacKey);
+        }
+        return $this->resolvedInstances[$key];
     }
 
     /**
      * Get the Rate Limiter.
      *
-     * @param callable|null $storage
      * @return DatabaseRateLimiter
      */
     public function getRateLimiter(callable $storage = null): DatabaseRateLimiter
     {
-        $storage = $storage ?: ($this->config['rate_limit']['callback'] ?? function(){});
-        return new DatabaseRateLimiter($storage);
+        $lockCallback = $this->config['rate_limit']['lock_callback'] ?? null;
+
+        if ($storage !== null) {
+            return new DatabaseRateLimiter($storage, $lockCallback);
+        }
+
+        $key = 'rate_limiter';
+        if (!isset($this->resolvedInstances[$key])) {
+            $storage = $this->config['rate_limit']['callback'] ?? function(){};
+            $this->resolvedInstances[$key] = new DatabaseRateLimiter($storage, $lockCallback);
+        }
+        return $this->resolvedInstances[$key];
     }
 
     /**

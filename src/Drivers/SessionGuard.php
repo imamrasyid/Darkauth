@@ -7,6 +7,7 @@ use Darkauth\Core\UserProviderInterface;
 use Darkauth\Core\UserInterface;
 use Darkauth\Core\StorageInterface;
 use Darkauth\Events\Dispatcher;
+use Darkauth\Support\Hash;
 
 /**
  * Class SessionGuard
@@ -121,7 +122,9 @@ class SessionGuard implements StatefulGuardInterface
         }
 
         if ($this->events) {
-            $this->events->dispatch('auth.login.failed', ['credentials' => $credentials]);
+            $sanitized = $credentials;
+            unset($sanitized['password']);
+            $this->events->dispatch('auth.login.failed', $sanitized);
         }
 
         return false;
@@ -134,7 +137,12 @@ class SessionGuard implements StatefulGuardInterface
     {
         $this->storage->set($this->getName() . '_user_id', $user->getAuthIdentifier());
         
-        // Prevent session fixation
+        if ($remember && method_exists($user, 'setRememberToken') && method_exists($user, 'getRememberTokenName')) {
+            $token = Hash::randomToken(60);
+            $user->setRememberToken($token);
+            $this->storage->set($this->getName() . '_remember_' . $user->getAuthIdentifier(), $token);
+        }
+        
         $this->storage->regenerate(true);
         
         if ($this->events) {
@@ -166,6 +174,7 @@ class SessionGuard implements StatefulGuardInterface
     {
         $user = $this->user();
         $this->storage->remove($this->getName() . '_user_id');
+        $this->storage->regenerate(true);
         $this->user = null;
 
         if ($this->events && $user) {

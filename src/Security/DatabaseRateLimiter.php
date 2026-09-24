@@ -15,13 +15,20 @@ class DatabaseRateLimiter implements RateLimiterInterface
     protected $storage;
 
     /**
+     * @var callable|null
+     */
+    protected $lockCallback;
+
+    /**
      * DatabaseRateLimiter constructor.
      *
      * @param callable $storage Callback to get/set limit data
+     * @param callable|null $lockCallback Optional lock callback: function($key, callable $fn)
      */
-    public function __construct(callable $storage)
+    public function __construct(callable $storage, callable $lockCallback = null)
     {
         $this->storage = $storage;
+        $this->lockCallback = $lockCallback;
     }
 
     /**
@@ -37,6 +44,23 @@ class DatabaseRateLimiter implements RateLimiterInterface
      * @inheritDoc
      */
     public function hit(string $key, int $decaySeconds = 60): int
+    {
+        if ($decaySeconds <= 0) {
+            $decaySeconds = 60;
+        }
+
+        if ($this->lockCallback) {
+            return call_user_func($this->lockCallback, $key, function() use ($key, $decaySeconds) {
+                return $this->doHit($key, $decaySeconds);
+            });
+        }
+        return $this->doHit($key, $decaySeconds);
+    }
+
+    /**
+     * Perform the actual hit operation (must be called within a lock if available).
+     */
+    protected function doHit(string $key, int $decaySeconds): int
     {
         $data = $this->get($key);
 
@@ -56,7 +80,7 @@ class DatabaseRateLimiter implements RateLimiterInterface
     public function remaining(string $key, int $maxAttempts): int
     {
         $data = $this->get($key);
-        if (!$data) return $maxAttempts;
+        if (!$data || $data['expires_at'] <= time()) return $maxAttempts;
         return max(0, $maxAttempts - $data['attempts']);
     }
 

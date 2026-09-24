@@ -3,7 +3,7 @@
 namespace Darkauth\Middleware;
 
 use Darkauth\Auth\AuthManager;
-use Exception;
+use Darkauth\Core\AuthenticationException;
 
 /**
  * Class Authenticate
@@ -31,12 +31,12 @@ class Authenticate
      * Handle the request.
      *
      * @param string|null $guard
-     * @throws Exception
+     * @throws AuthenticationException
      */
     public function handle(string $guard = null)
     {
         if ($this->auth->guard($guard)->guest()) {
-            throw new Exception("Unauthorized. Please log in.");
+            throw new AuthenticationException('Unauthorized. Please log in.');
         }
     }
 }

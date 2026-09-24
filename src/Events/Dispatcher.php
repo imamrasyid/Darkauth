@@ -40,7 +40,11 @@ class Dispatcher
         }
 
         foreach ($this->listeners[$event] as $listener) {
-            call_user_func($listener, $payload);
+            try {
+                call_user_func($listener, $payload);
+            } catch (\Exception $e) {
+                error_log("Darkauth event listener error [{$event}]: " . $e->getMessage());
+            }
         }
     }
 }

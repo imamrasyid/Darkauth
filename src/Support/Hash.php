@@ -59,7 +59,9 @@ class Hash
      */
     public static function randomToken(int $length = 40): string
     {
-        return bin2hex(random_bytes($length / 2));
+        $bytes = (intdiv($length, 2) + ($length % 2));
+        $hex = bin2hex(random_bytes($bytes));
+        return substr($hex, 0, $length);
     }
 
     /**

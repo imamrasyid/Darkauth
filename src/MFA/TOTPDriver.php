@@ -10,6 +10,21 @@ namespace Darkauth\MFA;
 class TOTPDriver implements MFAInterface
 {
     /**
+     * @var callable|null Storage callback for replay prevention
+     */
+    protected $storageCallback;
+
+    /**
+     * TOTPDriver constructor.
+     *
+     * @param callable|null $storageCallback Optional storage: function($action, $key, $value = null)
+     */
+    public function __construct(callable $storageCallback = null)
+    {
+        $this->storageCallback = $storageCallback;
+    }
+
+    /**
      * @inheritDoc
      */
     public function generateSecret(): string
@@ -27,11 +42,23 @@ class TOTPDriver implements MFAInterface
      */
     public function verify(string $secret, string $code): bool
     {
+        if (empty($secret)) {
+            return false;
+        }
+
         $timeSlice = floor(time() / 30);
 
         for ($i = -1; $i <= 1; $i++) {
-            $calculated = $this->getCode($secret, $timeSlice + $i);
+            $slice = $timeSlice + $i;
+            $calculated = $this->getCode($secret, $slice);
             if (hash_equals($calculated, $code)) {
+                if ($this->storageCallback) {
+                    $lastUsed = $this->storageGet('totp_last_used_' . md5($secret));
+                    if ($lastUsed !== null && (int)$lastUsed >= (int)$slice) {
+                        return false;
+                    }
+                    $this->storageSet('totp_last_used_' . md5($secret), (int)$slice);
+                }
                 return true;
             }
         }
@@ -65,6 +92,18 @@ class TOTPDriver implements MFAInterface
         ) % pow(10, 6);
 
         return str_pad((string)$otp, 6, '0', STR_PAD_LEFT);
+    }
+
+    protected function storageGet(string $key)
+    {
+        if (!$this->storageCallback) return null;
+        return call_user_func($this->storageCallback, 'get', $key);
+    }
+
+    protected function storageSet(string $key, $value)
+    {
+        if (!$this->storageCallback) return;
+        call_user_func($this->storageCallback, 'set', $key, $value);
     }
 
     protected function base32Decode(string $base32): string

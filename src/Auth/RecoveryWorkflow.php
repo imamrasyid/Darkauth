@@ -3,7 +3,6 @@
 namespace Darkauth\Auth;
 
 use Darkauth\Support\Hash;
-use Darkauth\Core\StorageInterface;
 use Darkauth\Events\Dispatcher;
 
 /**
@@ -14,9 +13,9 @@ use Darkauth\Events\Dispatcher;
 class RecoveryWorkflow
 {
     /**
-     * @var StorageInterface
+     * @var callable
      */
-    protected $storage;
+    protected $storageCallback;
 
     /**
      * @var Dispatcher
@@ -25,10 +24,13 @@ class RecoveryWorkflow
 
     /**
      * RecoveryWorkflow constructor.
+     *
+     * @param callable $storageCallback Storage callback: function($action, $key, $value = null)
+     * @param Dispatcher $events
      */
-    public function __construct(StorageInterface $storage, Dispatcher $events)
+    public function __construct(callable $storageCallback, Dispatcher $events)
     {
-        $this->storage = $storage;
+        $this->storageCallback = $storageCallback;
         $this->events = $events;
     }
 
@@ -41,9 +43,13 @@ class RecoveryWorkflow
      */
     public function createToken($userId, int $expirySeconds = 3600): string
     {
+        if ($userId === null || $userId === '') {
+            throw new \InvalidArgumentException('User ID cannot be empty for recovery token creation.');
+        }
+
         $token = Hash::randomToken(64);
         
-        $this->storage->set('recovery_' . $userId, [
+        $this->set('recovery_' . $userId, [
             'token' => $token,
             'expires' => time() + $expirySeconds
         ]);
@@ -62,7 +68,7 @@ class RecoveryWorkflow
      */
     public function verifyToken($userId, string $token): bool
     {
-        $data = $this->storage->get('recovery_' . $userId);
+        $data = $this->get('recovery_' . $userId);
 
         if (!$data || $data['expires'] < time()) {
             return false;
@@ -79,13 +85,43 @@ class RecoveryWorkflow
 
     /**
      * Complete the recovery (e.g., after password reset).
+     * Requires a verified token to prevent unauthorized recovery completion.
      *
      * @param mixed $userId
-     * @return void
+     * @param string $token Recovery token that was verified
+     * @return bool True if recovery completed successfully
      */
-    public function complete($userId)
+    public function complete($userId, string $token = null): bool
     {
-        $this->storage->remove('recovery_' . $userId);
+        // ponytail: token-less completion kept for BC; insecure. Remove when callers migrate.
+        if ($token === null) {
+            error_log('DarkAuth: RecoveryWorkflow::complete() without $token is deprecated and insecure; pass the verified recovery token.');
+            $this->remove('recovery_' . $userId);
+            $this->events->dispatch('auth.recovery.completed', ['user_id' => $userId]);
+            return true;
+        }
+
+        if (!$this->verifyToken($userId, $token)) {
+            return false;
+        }
+
+        $this->remove('recovery_' . $userId);
         $this->events->dispatch('auth.recovery.completed', ['user_id' => $userId]);
+        return true;
+    }
+
+    protected function get(string $key): ?array
+    {
+        return call_user_func($this->storageCallback, 'get', $key);
+    }
+
+    protected function set(string $key, $value): void
+    {
+        call_user_func($this->storageCallback, 'set', $key, $value);
+    }
+
+    protected function remove(string $key): void
+    {
+        call_user_func($this->storageCallback, 'remove', $key);
     }
 }

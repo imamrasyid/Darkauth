@@ -4,4 +4,3 @@ composer.lock
 .vscode/
 *.log
 .env
-/tests/test_all.php

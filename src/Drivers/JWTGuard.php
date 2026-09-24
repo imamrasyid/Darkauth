@@ -41,6 +41,11 @@ class JWTGuard implements GuardInterface
     protected $events;
 
     /**
+     * @var bool Whether login event has been dispatched for current token
+     */
+    protected $loginEventDispatched = false;
+
+    /**
      * JWTGuard constructor.
      *
      * @param JwtHelper $jwt
@@ -86,8 +91,9 @@ class JWTGuard implements GuardInterface
             if ($payload && isset($payload['sub'])) {
                 $this->user = $this->provider->retrieveById($payload['sub']);
                 
-                if ($this->user && $this->events) {
+                if ($this->user && $this->events && !$this->loginEventDispatched) {
                     $this->events->dispatch('auth.login.success', ['user' => $this->user, 'method' => 'jwt']);
+                    $this->loginEventDispatched = true;
                 }
             }
         }
@@ -146,7 +152,8 @@ class JWTGuard implements GuardInterface
     public function setToken(string $token)
     {
         $this->token = $token;
-        $this->user = null; // Important: reset cached user when token changes
+        $this->user = null;
+        $this->loginEventDispatched = false;
         return $this;
     }
 

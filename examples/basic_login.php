@@ -1,52 +1,80 @@
 <?php
 
+/**
+ * Example: Session-Based Login (Web)
+ *
+ * Menggunakan SessionGuard untuk login berbasis cookie.
+ * Cocok untuk website tradisional dengan form login.
+ */
+
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use Darkauth\Auth\AuthManager;
 use Darkauth\Models\GenericUser;
 
-// 1. Setup configuration
+// ── Konfigurasi ──────────────────────────────────────────────────
 $config = [
     'defaults' => [
         'guard' => 'web',
     ],
     'guards' => [
         'web' => [
-            'driver' => 'session',
+            'driver'   => 'session',
             'provider' => 'users',
         ],
     ],
     'providers' => [
         'users' => [
-            'callback' => function($id) {
-                // Mock database lookup
+            'callback' => function ($id) {
+                // Simulasi database lookup
                 $users = [
-                    1 => ['id' => 1, 'name' => 'John Doe', 'email' => 'john@example.com'],
-                    2 => ['id' => 2, 'name' => 'Jane Smith', 'email' => 'jane@example.com'],
+                    1 => ['id' => 1, 'name' => 'John Doe', 'email' => 'john@example.com', 'password' => password_hash('secret', PASSWORD_DEFAULT)],
+                    2 => ['id' => 2, 'name' => 'Jane Smith', 'email' => 'jane@example.com', 'password' => password_hash('secret', PASSWORD_DEFAULT)],
                 ];
-                
+
                 return isset($users[$id]) ? new GenericUser($users[$id]) : null;
-            }
+            },
         ],
     ],
 ];
 
-// 2. Initialize Manager
+// ── Inisialisasi ─────────────────────────────────────────────────
 $auth = new AuthManager($config);
+$guard = $auth->guard('web');
 
-// 3. Simulate Login
-$john = new GenericUser(['id' => 1, 'name' => 'John Doe']);
-$auth->guard('web')->login($john);
+// ── Skenario 1: Login langsung dengan objek user ────────────────
+echo "=== Skenario 1: Login Langsung ===\n";
+$john = new GenericUser(['id' => 1, 'name' => 'John Doe', 'email' => 'john@example.com']);
+$guard->login($john);
 
-// 4. Check Authentication
-if ($auth->check()) {
-    echo "Current User ID: " . $auth->id() . PHP_EOL;
-    echo "Current User Name: " . $auth->user()->name . PHP_EOL;
+if ($guard->check()) {
+    echo "User ID : " . $guard->id() . "\n";
+    echo "Name    : " . $guard->user()->name . "\n";
+    echo "Guest?  : " . ($guard->guest() ? 'Yes' : 'No') . "\n";
 }
 
-// 5. Logout
-$auth->logout();
+$guard->logout();
+echo "After logout: " . ($guard->guest() ? 'Guest' : 'Authenticated') . "\n\n";
 
-if ($auth->guest()) {
-    echo "User has been logged out." . PHP_EOL;
+// ── Skenario 2: Login by ID ─────────────────────────────────────
+echo "=== Skenario 2: Login by ID ===\n";
+$guard->loginUsingId(2);
+
+if ($guard->check()) {
+    echo "Logged in as ID: " . $guard->id() . "\n";
+    echo "Name: " . $guard->user()->name . "\n";
 }
+
+$guard->logout();
+
+// ── Skenario 3: Login dengan attempt (validasi kredensial) ──────
+echo "\n=== Skenario 3: Login dengan validate() ===\n";
+$found = $auth->guard('web')->validate(['id' => 1]);
+
+// validate() hanya mengecek kredensial, tidak login.
+echo "Validate result: " . ($found ? 'Found' : 'Not found') . "\n";
+
+// ── Skenario 4: Cek guard status ────────────────────────────────
+echo "\n=== Guard Info ===\n";
+echo "Guard name: " . $auth->guard('web')->getName() . "\n";
+echo "Default    : " . $auth->getDefaultGuard() . "\n";

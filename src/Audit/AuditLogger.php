@@ -17,13 +17,23 @@ class AuditLogger
     protected $storageCallback;
 
     /**
+     * @var string
+     */
+    protected $hmacKey;
+
+    /**
      * AuditLogger constructor.
      *
      * @param callable $storageCallback
+     * @param string $hmacKey HMAC signing key for tamper-resistant logs
      */
-    public function __construct(callable $storageCallback)
+    public function __construct(callable $storageCallback, string $hmacKey = '')
     {
+        if ($hmacKey === '') {
+            throw new \InvalidArgumentException('AuditLogger requires a non-empty HMAC key to produce tamper-resistant signatures.');
+        }
         $this->storageCallback = $storageCallback;
+        $this->hmacKey = $hmacKey;
     }
 
     /**
@@ -69,8 +79,7 @@ class AuditLogger
         ];
 
         // Tamper-resistant signature (HMAC)
-        // In a real app, 'secret_key' should be from config
-        $logData['signature'] = hash_hmac('sha256', $logData['event'] . $logData['timestamp'] . $logData['data'], 'darkauth_log_secret');
+        $logData['signature'] = hash_hmac('sha256', $logData['event'] . $logData['timestamp'] . $logData['data'], $this->hmacKey);
 
         call_user_func($this->storageCallback, $logData);
     }

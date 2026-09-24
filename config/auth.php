@@ -67,7 +67,8 @@ return [
     'jwt' => [
         'secret' => 'your-secret-key-change-me',
         'algo' => 'HS256',
-        'ttl' => 3600, // 1 hour
+        'ttl' => 3600,
+        'issuer' => null,
     ],
 
     /*
@@ -81,10 +82,6 @@ return [
             'recaptcha' => [
                 'site_key' => 'YOUR_RECAPTCHA_SITE_KEY',
                 'secret_key' => 'YOUR_RECAPTCHA_SECRET_KEY',
-            ],
-            'hcaptcha' => [
-                'site_key' => 'YOUR_HCAPTCHA_SITE_KEY',
-                'secret_key' => 'YOUR_HCAPTCHA_SECRET_KEY',
             ],
         ],
     ],
@@ -110,5 +107,35 @@ return [
     'audit' => [
         'enabled' => true,
         // 'callback' => function($data) { ... },
+        // 'hmac_key' => 'your-secure-random-key-for-audit-signing',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Trusted Device Configuration
+    |--------------------------------------------------------------------------
+    */
+    'trusted_device' => [
+        // 'callback' => function($action, $key, $value = null) { ... },
+        // 'hmac_key' => 'your-secure-random-key-for-device-tokens',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Recovery Workflow Configuration
+    |--------------------------------------------------------------------------
+    */
+    'recovery' => [
+        // 'callback' => function($action, $key, $value = null) { ... },
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Rate Limiter Configuration
+    |--------------------------------------------------------------------------
+    */
+    'rate_limit' => [
+        // 'callback' => function($action, $key, $value = null) { ... },
+        // 'lock_callback' => function($key, callable $fn) { return $fn(); },
     ],
 ];

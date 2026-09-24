@@ -32,12 +32,14 @@ class Templates
      */
     public static function mfaOnboarding(string $qrCodeUrl, string $secret): string
     {
+        $safeQrUrl = htmlspecialchars($qrCodeUrl, ENT_QUOTES, 'UTF-8');
+        $safeSecret = htmlspecialchars($secret, ENT_QUOTES, 'UTF-8');
         return '
         <div class="darkauth-container">
             <h1 class="darkauth-title">Keamanan Tambahan</h1>
             <p class="darkauth-text">Untuk menjaga keamanan akun Anda, silakan pindai kode QR di bawah menggunakan aplikasi <strong>Google Authenticator</strong> di HP Anda.</p>
-            <img src="' . $qrCodeUrl . '" class="darkauth-qr" alt="QR Code">
-            <p class="darkauth-text" style="text-align:center;">Atau masukkan kode ini secara manual:<br><strong>' . $secret . '</strong></p>
+            <img src="' . $safeQrUrl . '" class="darkauth-qr" alt="QR Code">
+            <p class="darkauth-text" style="text-align:center;">Atau masukkan kode ini secara manual:<br><strong>' . $safeSecret . '</strong></p>
             <form method="POST">
                 <input type="text" name="mfa_code" class="darkauth-input" placeholder="Masukkan 6 angka dari HP" required maxlength="6" pattern="\d{6}">
                 <button type="submit" class="darkauth-button">Aktifkan Sekarang</button>
@@ -50,7 +52,10 @@ class Templates
      */
     public static function recoveryCodes(array $codes): string
     {
-        $codesList = implode('</div><div style="flex:1 0 40%; padding:5px; font-family:monospace; font-size:18px;">', $codes);
+        $escapedCodes = array_map(function($code) {
+            return htmlspecialchars($code, ENT_QUOTES, 'UTF-8');
+        }, $codes);
+        $codesList = implode('</div><div style="flex:1 0 40%; padding:5px; font-family:monospace; font-size:18px;">', $escapedCodes);
         return '
         <div class="darkauth-container">
             <h1 class="darkauth-title">Simpan Kode Pemulihan</h1>

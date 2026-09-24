@@ -26,21 +26,32 @@ class ReCaptchaDriver implements CaptchaInterface
         $data = [
             'secret' => $this->secretKey,
             'response' => $response,
-            'remoteip' => $ip
         ];
+        if ($ip !== null) {
+            $data['remoteip'] = $ip;
+        }
 
-        $options = [
-            'http' => [
-                'header'  => "Content-type: application/x-www-form-urlencoded\r\n",
-                'method'  => 'POST',
-                'content' => http_build_query($data)
-            ]
-        ];
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => http_build_query($data),
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 10,
+            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
+            CURLOPT_HTTPHEADER => ['Content-Type: application/x-www-form-urlencoded'],
+        ]);
 
-        $context  = stream_context_create($options);
-        $result = file_get_contents($url, false, $context);
+        $result = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($result === false || $httpCode !== 200) {
+            return false;
+        }
+
         $json = json_decode($result, true);
-
         return $json['success'] ?? false;
     }
 
